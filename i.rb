@@ -14,12 +14,12 @@
 # This is my first project:
 # - Wiki-hangman
 # Requirements:
-# - Connect to Wikipedia
-# - Select and download an article (random with sufficient length)
-# - Find an uncommon word used on the page
-# - Present the user with the name of the Wiki page
-# - Allow the user to guess the word, hangman style
-# - Maintain a running scoreboard
+# [x] Connect to Wikipedia
+# [x] Select and download an article (random with sufficient length)
+# [x] Find an uncommon word used on the page
+# [x] Present the user with the name of the Wiki page
+# [x] Allow the user to guess the word, hangman style
+# [ ] Maintain a running scoreboard
 
 class Log
   # For debugging purposes, log stuff to file
@@ -55,7 +55,7 @@ class PediaReader
     #     Reject common Words
     #     Reject long and short words
     words = document_text.split.reject { |word|
-      word.length<7 || word.include?("http") || word.include?("Category") || word.chars.any? { |c| ",*(')|=\'".include?(c)} || word.downcase != word
+      word.length<7 || word.include?("http") || word.include?("Category") || word.chars.any? { |c| ".?!,*(')|=\'".include?(c)} || word.downcase != word
     }
     word_count = Hash.new(0)
     words.each { |word| word_count[word] += 1 }
@@ -109,7 +109,7 @@ class Hangman
     puts "\n"*30
     puts "  WIKI-HANGMAN"
     puts "  ============"
-    puts "\n"*5
+    puts "\n"*3
 
     # TITLE
     puts "  The title of this round is:"
@@ -142,6 +142,8 @@ class Hangman
     elsif @guesses < 1
       puts "  You didn't get the answer in time. The answer was #{@word}"
       @round_over = true
+    else
+      puts "\n"
     end
     puts "\n"*20
     sleep(0.4)
