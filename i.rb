@@ -24,52 +24,118 @@
 class Log
   # For debugging purposes, log stuff to file
   def Log.write(to_add)
-    # Do local File IO stuff
     time = Time.now.strftime("%a %d - %H:%M")
     file = File.open("first.log", "a") { |f| f.puts time, to_add, "\n" }
   end
 end
+
+#DEFINE ERROR HANDLING
+class NickError < StandardError
+  def initialize(msg="Normal Nick type Error")
+    Log.write(msg)
+    super(msg)
+  end
+end
+class PediaError < NickError; end
+class HangmanError < NickError; end
 
 class PediaReader
   # Select and download a random Wikipedia article
   # Send to AnalyseArticle
   # Repeat if article does not meet criteria
   # Return article
-  def open_article
+  attr_reader :title, :first_line, :word
+
+  def initialize
+    @minimum_word_length = 7
+    @maximum_word_length = 14
+    error_handler do
+      @title, text_body = open_random_article
+      stripped_text_body = strip_formatting(text_body)
+      @first_line = get_first_line(stripped_text_body)
+      @word = get_word(stripped_text_body)
+    end
+  end
+
+  private
+  def error_handler
+    yield
+    rescue
+      retry
+  end
+
+  def open_random_article
     require 'open-uri'
     require 'json'
     url = 'https://en.wikipedia.org/w/api.php?action=query&prop=revisions&rvprop=content&format=json&generator=random&grnnamespace=0'
     json_page  = open(url,{ssl_verify_mode: 0}) {|f| f.read }
     page_hash = JSON.parse(json_page)
     title = page_hash['query']['pages'].values[0]['title']
-    haha = page_hash['query']['pages'].values[0]['revisions'][0]["*"]
-
-    document_text = haha.gsub("\n"," ").gsub(/({{2}.*?}{2})/,"").gsub(/(={2+}.*?={2+})/,"").gsub(/\[{2}|\]{2}/,"").gsub(/<.*?>/,"")
-    the_word = word_select(document_text)
-    return [title,the_word]
+    text_body = page_hash['query']['pages'].values[0]['revisions'][0]["*"]
+    return [title,text_body]
   end
 
-  def word_select(document_text)
+  def strip_formatting (wikitext)
+    # Temporary replace \n with *newline*
+    wikitext.gsub!("\n",'*newline*')
+    # Strip any templates
+        # Todo: improve behaviour for inline templates
+    3.times.each { wikitext.gsub!(/{{2}.*?}{2}/,'{{') }
+    wikitext.gsub!(/{{2}/,'')
+    # Strip straight brackets
+    wikitext.gsub!(/\[{2}(.+?)\]{2}/,'\1')
+    wikitext.gsub!(/.+\|/,'')
+    # Strip title quotes
+    wikitext.gsub!(/\'{2,}/,'')
+    #Strip references
+    wikitext.gsub!(/<ref.*?\/ref>|\/>/,'')
+    wikitext.gsub!(/<ref>.*?<\/ref>/,'')
+    # Strip lists separate from the main body of the text
+    ["References","External links","Bibliography","Further reading", "Gallery"].each do |str|
+      idx = wikitext.downcase.index(str.downcase)
+      wikitext.slice!(idx-2..-1) if !idx.nil?
+    end
+    # Strip URLs
+    wikitext.gsub!(/\[http.*?>/,'')
+    # Restore \n from *newline*
+    wikitext.gsub!('*newline*',"\n")
+    if "{}<>".chars.any? { |c| wikitext.include?(c) }
+      raise PediaError.new("Text may not be clean")
+    end
+    if wikitext.length < 400
+      raise PediaError.new("Article is too short")
+    end
+    return wikitext
+  end
+
+  def get_first_line(text_body)
+    end_of_line = text_body.index(/\.( |\n)/)
+    raise PediaError.new("First line is too short") if end_of_line < 50
+    first_line = text_body.slice(0..end_of_line).strip
+    raise PediaError.new("No title in first line") unless first_line.include?(@title)
+    first_line
+  end
+
+  def get_word(text_body)
     # Select a suitable word from the article
     #     Reject numbers
     #     Reject common Words
     #     Reject long and short words
-    words = document_text.split.reject { |word|
-      word.length<7 || word.include?("http") || word.include?("Category") || word.chars.any? { |c| ".?!,*(')|=\'".include?(c)} || word.downcase != word
-    }
-    word_count = Hash.new(0)
-    words.each { |word| word_count[word] += 1 }
-    return word_count.find { |k,v| v == 2 }[0]
+    words = text_body.split.reject do |word|
+      word.include?("http") ||                          # Exclude any urls
+      word.include?("disambiguation") ||                # Exclude disambiguation
+      word.length < @minimum_word_length ||             # Exclude short words
+      word.length > @maximum_word_length ||             # Exclude long words
+      word.downcase != word ||                          # Exclude capitalised words, to explude proper names
+      word.to_i.to_s == word ||                         # Exclude numbers
+      word.chars.any? { |c| ".?!,*(')|=\'".include?(c)} # Exclude any words with
+    end                                                 # accidentally attached punctuation
+    rescue => e
+      raise PediaError.new("Problem getting words: "+ e.message)
+    else
+      word = words[rand(words.length)]
+    return word
   end
-end
-
-
-
-class Page
-
-
-
-
 end
 
 class Hangman
@@ -79,11 +145,12 @@ class Hangman
   # Update the gameboard (use clear, cls)
   # Declare victory/defeat
   # Display scoreboard
-  def initialize(title, word)
-    @title = title
-    @word = word
-    @guesses = 5
-    @matches = Hash.new
+  def initialize(title, first_line, word)
+         @title = title
+    @first_line = first_line
+          @word = word
+       @guesses = 5
+       @matches = Hash.new
     play
   end
 
@@ -133,7 +200,9 @@ class Hangman
       end
     }
     puts board
-    puts "\n"*5
+    puts "\n"*3
+    puts @first_line
+    puts "\n"*3
 
     # ENDPOINT SECTION
     if @word.length == @matches.length
@@ -145,7 +214,7 @@ class Hangman
     else
       puts "\n"
     end
-    puts "\n"*20
+    puts "\n"*15
     sleep(0.4)
   end
 end
@@ -155,17 +224,15 @@ class HighScore
   # Return score information
 end
 
-
 class Game
   # Call on all of the classes above and tie it all together
-  reader = PediaReader.new
-  title, word = reader.open_article
-  #title, word = ["MANU V STEELINK CONTRACTING SERVICES LTD", "employment"]
-  Log.write("From \"#{title}\", the word is #{word}")
-  hangman = Hangman.new(title, word)
+     article = PediaReader.new
+       title = article.title
+  first_line = article.first_line
+        word = article.word
+  hangman = Hangman.new(title, first_line, word)
 end
 
-#Log.write("ddd")
 Game.new
 
 
@@ -175,13 +242,13 @@ Game.new
 
 
 # TO DO:
-# [ ] Overhaul Wiki-scrape
-# [ ] Provide first line of the article for context
-# [ ] Retry Wiki-scrape when a good word is not found
+# [x] Overhaul Wiki-scrape
+# [x] Provide first line of the article for context
+# [x] Retry Wiki-scrape when a good word is not found
 # [ ] Allow for multiple rounds
 # [ ] Log successes and failures
 # [ ] Manage difficulty settings:
-#   [ ] Minimum word length
+#   [x] Minimum word length
 #   [ ] Number of guesses
 #   [ ] Letter repetiveness of the word
 #   [ ] Hide/Show context first line
