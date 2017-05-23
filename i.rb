@@ -219,11 +219,6 @@ class Hangman
   end
 end
 
-class HighScore
-  # Use File IO to write to scoreboard
-  # Return score information
-end
-
 class Game
   # Call on all of the classes above and tie it all together
      article = PediaReader.new
@@ -238,7 +233,7 @@ Game.new
 
 
 
-#puts reduced#["hello"] => "goodbye"
+
 
 
 # TO DO:
