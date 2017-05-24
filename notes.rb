@@ -4,6 +4,7 @@ TO DO
 #  [ ] Git
 #  [ ] Erb
 #  [ ] JavaScript
+#  [ ] Byebug / Pry
 
 DEBUGGING
 # Returns an array of all local variables. Useful in debugging issues involving scope.
@@ -41,6 +42,7 @@ end
 a, *b = 1, 2, 3 #=> a = 1, b =[2,3]
 
 
+
 LOGIC
 # Case can compare using Regex and can compare against multiple comparators
 case "2"
@@ -54,7 +56,7 @@ if a = object.some_value
   # do something to a
 end
 
-# When assigning a value during an evaluation, adding parentheses can help clarify the code
+# Tip from JS; when assigning a value during an evaluation, adding parentheses can help clarify the code
 if ((x = 5)) then ... end           # Confirm this works in Ruby
 
 
@@ -86,5 +88,5 @@ STRINGS
 "hello".center(20, '=') #=> =======hello=========
 # 3. Strip a trailing character with chomp method
 "hello".chomp("lo") #=> "hel"
-# 4. Select all instances hat match a Regex from a string
-"cruel world".scan(/(...)/) #=> [["cru"], ["el "], ["wor"]]
+# 4. Select all instances that match a Regex from a string
+"cruel world".scan(/(...)/) #=> [["cru"], ["el "], ["wor"]] 
